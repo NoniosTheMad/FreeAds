@@ -2,9 +2,6 @@ from kivy.app import App
 from kivy.uix.widget import Widget
 from kivy.core.window import Window
 
-# Debug
-from kivy.config import Config
-
 from catchme import CatchMe
 from automaton import Automaton
 

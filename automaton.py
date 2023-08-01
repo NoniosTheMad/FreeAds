@@ -11,9 +11,9 @@ from kivy.core.window import Window
 from kivy.clock import Clock
 
 import math
-
-
 import random
+
+
 from templates import *
 
 class Automaton(FloatLayout):
@@ -77,7 +77,7 @@ class Cell():
         self.x = x
         self.y = y
         self.state = state
-        self.fut_state = None
+        self.fut_state = state
         
         self.neighbours = []
 
@@ -124,6 +124,7 @@ class BackgroundCanvas(FloatLayout):
                 self.cells[x].append(cell)
                 
         self.get_neighbours()
+        self.start()
     
     # Enable auto-run
     def start(self, frequency=10):
@@ -132,14 +133,16 @@ class BackgroundCanvas(FloatLayout):
             1.0 / frequency)  # 4 frames per second
     
     # trigger update functions
-    def update(self):
-        self.update_states()
-        self.update_grid()
+    def update(self, force=False):
+        if force or self.parent.menu.game_controls.pause_button.text == "On":
+            self.update_states(interact=not force)
+            self.update_grid()
     
     # update cell values
-    def update_states(self):
-        self.turn += 1
-        self.parent.menu.turn_counter.text = str(self.turn)
+    def update_states(self, interact):
+        if interact:
+            self.turn += 1
+            self.parent.menu.turn_counter.text = str(self.turn)
         
         self.canvas.clear()
         
@@ -152,7 +155,8 @@ class BackgroundCanvas(FloatLayout):
                             size=(self.density_factor-2,
                                   self.density_factor-2)
                         )
-                self.interact(cell)
+                if interact: self.interact(cell)
+                else: cell.fut_state = cell.state
         return True
     
     # initial state of cells, based on their x, y position
@@ -195,9 +199,6 @@ class BackgroundCanvas(FloatLayout):
     # touch trigger
     def on_touch_down(self, touch):
         
-        if self.collide_point(*touch.pos):
-            pass
-        
         # find touched cell
         obj_pos = (math.floor((touch.pos[0]-self.offsets[0]/2)/self.density_factor)+self.margin,
                    math.floor((touch.pos[1]-self.offsets[1]/2)/self.density_factor)+self.margin)
@@ -212,14 +213,10 @@ class BackgroundCanvas(FloatLayout):
         
         # trigger updates
         self.update_state(self.cells[obj_pos[0]][obj_pos[1]])
-        
-        if self.action_consumes_turn:
-            self.update()
-        
-        # begin automatic simulation
-        if self.pause and self.auto_resume:
-            self.start()
-            self.pause=False
+            
+        self.update(force=self.auto_resume)
+        if self.auto_resume:
+            self.parent.menu.game_controls.pause_button.state = "down"
         
         
     def get_neighbours(self):
@@ -291,34 +288,124 @@ class GameControls(FloatLayout):
         
         self.pause_button = None
         self.menu_extension_button = None
+        self.menu = None
+        
         
     def setup(self):
         
-        self.pause_button = ToggleButton(
-                text = "Pause",
+        self.pause_button = PauseButton(
+                text = "Off",
                 pos = (self.pos[0] + self.size[0]*9/20, self.pos[1] + self.size[1]/4),
                 size_hint = (None, None),
-                size = (self.size[0]/10, self.size[1]/2),
-                on_state = self.pause_press
+                size = (self.size[0]/10, self.size[1]/2)
             )
         self.add_widget(self.pause_button)
         
         
-        self.auto_start_button = ToggleButton(
-                text = "Extend Menu",
+        self.show_menu = MenuButton(
+                text = "Menu",
                 pos = (self.pos[0] + self.size[0]*35/40, self.pos[1] + self.size[1]/4),
                 size_hint = (None, None),
-                size = (self.size[0]/10, self.size[1]/2),
-                on_state = self.extend_menu
+                size = (self.size[0]/10, self.size[1]/2)
             )
-        self.add_widget(self.auto_start_button)
+        self.add_widget(self.show_menu)
         
+        self.menu = AdsMenu(
+                orientation = "vertical",
+                pos = (self.size[0]*9/10-10, 10),
+                size_hint = (None, None),
+                size = self.show_menu.size
+            )
+        
+
+class PauseButton(ToggleButton):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
     
-    # TODO: Fix click detection
-    def pause_press(self, state):
-        #TODO
-        print("paused!")
+    def on_state(self, _, value):
+        if value == "down":
+            self.text = "On"
+        else:
+            self.text = "Off"
+            
+            
+class MenuButton(ToggleButton):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+    
+    def on_state(self, widget, value):
         
-    def extend_menu(self, state):
-        #TODO
-        pass
+        if value == "down":
+            self.text = "Hide"
+            self.parent.add_widget(self.parent.menu)
+        else:
+            self.text = "Menu"
+            self.parent.remove_widget(self.parent.menu)
+            
+class AdsMenu(BoxLayout):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        
+        self.banner_counter = self.BannerCounter(
+            orientation = "horizontal"
+        )
+        self.banner_counter.setup()
+        
+        self.banner_add2 = Button(text = "2"
+        )
+        
+        self.add_widget(self.banner_counter)
+        self.add_widget(self.banner_add2)
+        
+    class BannerCounter(BoxLayout):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            
+            self.counter = None
+            self.counter_change = None
+            
+            
+        def setup(self):
+            
+            self.counter = Button(
+                    text = '0',
+                    disabled = True,
+                    background_disabled_normal = '',
+                    disabled_color = (1, 1, 1, 1),
+                    background_normal = '',
+                    background_color =(0.207, 0.423, 0.635, 0.9)
+                )
+            #self.counter.background_color = (1,1,1,1)
+                
+            self.counter_change = self.CounterChange(
+                    orientation = "vertical"
+                )
+            self.counter_change.setup()
+            
+            self.add_widget(self.counter)
+            self.add_widget(self.counter_change)
+
+            
+        class CounterChange(BoxLayout):
+            def __init__(self, **kwargs):
+                super().__init__(**kwargs)
+                
+                self.count = 0
+                self.adder = None
+                self.reducer = None
+                self.MAX_BANNERS = 3# TODO
+                
+            def setup(self):
+                self.adder = Button(text = "+1", on_press = self.add)
+                self.reducer = Button(text = "-1", on_press = self.subtract)
+                
+                self.add_widget(self.adder)
+                self.add_widget(self.reducer)
+            
+            def add(self, button):
+                self.count = min(self.count + 1, self.MAX_BANNERS)
+                self.parent.counter.text = str(self.count)
+            
+            def subtract(self, button):
+                self.count = max(self.count - 1, 0)
+                self.parent.counter.text = str(self.count)
