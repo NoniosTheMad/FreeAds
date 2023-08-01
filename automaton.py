@@ -16,17 +16,6 @@ import math
 import random
 from templates import *
 
-class Cell():
-    def __init__(self, x=0, y=0, state=(1,1,1,1)) -> None:
-        self.x = x
-        self.y = y
-        self.state = state
-        self.fut_state = None
-        
-        self.neighbours = []
-        
-        
-
 class Automaton(FloatLayout):
     
     # Initializes the class, without creating the grid
@@ -34,21 +23,14 @@ class Automaton(FloatLayout):
         super().__init__(**kwargs)
         
         ############# self variables #############
-        self.density_factor = None
-        self.rows = None
-        self.cols = None
-        self.offsets = None
-        self.cell_position = None
-        self.margin = 2
-        
-        self.cells = None
         self.pause = None
         self.turn = None
         
         self.auto_resume = True # future configuration
-        self.action_consumes_turn = True # future configuration
+        self.action_consumes_turn = False # future configuration
         
         # Widgets
+        self.grid = None
         self.menu = None
     
     
@@ -62,7 +44,17 @@ class Automaton(FloatLayout):
         self.size = self.parent.size
         
         # Clear priority canvas
-        self.canvas.after.clear()
+        #self.canvas.after.clear()
+        
+        self.grid = BackgroundCanvas(
+                pos = self.pos,
+                size_hint = (None, None),
+                size = self.size
+            )
+        self.grid.action_consumes_turn = self.action_consumes_turn
+        self.grid.auto_resume = self.auto_resume
+        
+        self.add_widget(self.grid)
         
         # Create the menu instance
         self.menu = AutomatonMenu(
@@ -76,8 +68,26 @@ class Automaton(FloatLayout):
         self.menu.setup()
         
         # Priorize self.menu canvas
-        self.canvas.after.add(self.menu.canvas)
+        #self.canvas.after.add(self.menu.canvas)
         
+        
+                    
+class Cell():
+    def __init__(self, x=0, y=0, state=(1,1,1,1)) -> None:
+        self.x = x
+        self.y = y
+        self.state = state
+        self.fut_state = None
+        
+        self.neighbours = []
+
+
+
+class BackgroundCanvas(FloatLayout):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        
+        self.margin = 2
         self.cells = []
         self.pause = True
         self.turn = 0
@@ -125,12 +135,11 @@ class Automaton(FloatLayout):
     def update(self):
         self.update_states()
         self.update_grid()
-        # print(self.menu.) # TODO
     
     # update cell values
     def update_states(self):
         self.turn += 1
-        self.menu.turn_counter.text = str(self.turn)
+        self.parent.menu.turn_counter.text = str(self.turn)
         
         self.canvas.clear()
         
